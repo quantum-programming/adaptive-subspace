@@ -32,6 +32,6 @@ position_qubit_operator
 ```python
 # obtain efficient measurement set and its probability distribution according to overlapped grouping
 from OverlappedGrouping.overlapped_grouping import OverlappedGrouping
-overlappedGrouping(momentum_qubit_operator,T=100).get_meas_and_p()
+overlappedGrouping(position_qubit_operator,T=100).get_meas_and_p()
 
 ```

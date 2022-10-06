@@ -1,0 +1,5 @@
+{"molecule_type": "N2", "basis_type": "6-31G", 
+    "n_qubit": 36, "n_term_t1_1st": 5, "n_term_t2_1st": 50, 
+    "n_term_t1": 10, "n_term_t2": 500, "n_term_t3": 0, 
+    "dim": 511, "L": 1.2, "maxsize": 16, "use_PG": true, 
+    "save_QSE_operator": false, "use_cc_based_partition": true}

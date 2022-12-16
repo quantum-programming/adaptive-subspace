@@ -104,13 +104,24 @@ class LocalPauliShadowSampler_core(object):
         return digits
 
 
-def get_samples(sampler, meas_axes):
+def get_samples(
+    sampler: LocalPauliShadowSampler_core, meas_axes: Iterable[Iterable]
+) -> np.ndarray:  
+    """
+    Create a measurement sample according to measurement axes
+
+    Args:
+        sampler (LocalPauliShadowSampler_core): Sampler Class
+        meas_axes (Iterable[Iterable]): measurement axes shaped as (total shot, num_qubit)
+
+    Returns:
+        np.ndarray: sampling result shaped as (total shot, num_qubit)
+    """
 
     sample_digits = [
         sampler._sample_digits(_meas_ax, nshot_per_axis=sampler.m)
         for _meas_ax in meas_axes
     ]
-    #     print(sample_digits)
     sample_digits = sum(sample_digits, [])  # 整形
     bitstring_array = [
         format(_samp, "b").zfill(sampler.n_qubit) for _samp in sample_digits
@@ -121,8 +132,17 @@ def get_samples(sampler, meas_axes):
     return samples
 
 
-def estimate_exp(operator, sampler):
-    # meas_axes = [sampler.generate_random_measurement_axis() for _ in range(sampler.Ntot)]
+def estimate_exp(operator: QubitOperator, sampler: LocalPauliShadowSampler_core) -> float:
+    """
+    Estimate expectation value of Observable for Basic Classical Shadow
+
+    Args:
+        operator (QubitOperator): Observable such as Hamiltonian
+        sampler (LocalPauliShadowSampler_core): Sampler Class 
+
+    Returns:
+        float: Expectation value
+    """
     meas_axes = sampler.generate_random_measurement_axis()
     samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
@@ -144,11 +164,23 @@ def estimate_exp(operator, sampler):
 
     return exp
 
-def estimate_exp_lbcs(operator, sampler, beta):
-    # meas_axes = [
-    #     sampler.generate_random_measurement_axis(lbcs_beta=beta)
-    #     for _ in range(sampler.Ntot)
-    # ]
+def estimate_exp_lbcs(
+    operator: QubitOperator,
+    sampler: LocalPauliShadowSampler_core,
+    beta: Iterable[Iterable],
+) -> float:
+    """
+    Estimate expectation value of Observable for Locally Biased Classical Shadow
+
+    Args:
+        operator (QubitOperator): Observable such as Hamiltonian
+        sampler (LocalPauliShadowSampler_core): Sampler Class 
+        beta (Iterable[Iterable]): weighted bias
+
+    Returns:
+        float: Expectation value
+    """
+
     meas_axes = sampler.generate_random_measurement_axis(lbcs_beta=beta)
     samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
@@ -173,15 +205,28 @@ def estimate_exp_lbcs(operator, sampler, beta):
     return exp
 
 
-def estimate_exp_ogm(operator, sampler, meas_dist):
+def estimate_exp_ogm(
+    operator: QubitOperator,
+    sampler: LocalPauliShadowSampler_core,
+    meas_dist: Iterable[Iterable],
+) -> float :
+    """
+    Estimate expectation value of Observable for Locally Biased Classical Shadow
+
+    Args:
+        operator (QubitOperator): Observable such as Hamiltonian
+        sampler (LocalPauliShadowSampler_core): Sampler Class 
+        meas_dist (Iterable[Iterable]): measurement set and its distribution 
+                                        input is format of QubitOperator.terms
+
+    Returns:
+        float: Expectation value
+    """
     
     def get_chi(grouper, q_i, pr, meas):
             return sum([p for p, m in zip(pr, meas) if  grouper._if_commute(q_i, m)])
 
-    # meas_axes = [
-    #     sampler.generate_random_measurement_axis(ogm_meas_set=meas_dist)
-    #     for _ in range(sampler.Ntot)
-    # ]
+
     meas_axes = sampler.generate_random_measurement_axis(ogm_meas_set=meas_dist)
     samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape

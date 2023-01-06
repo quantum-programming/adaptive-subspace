@@ -146,11 +146,10 @@ def _involved_partition_number(tensor_indices, partition):
 
 def generate_fermionic_excitation_terms(
     fermionic_hamiltonian,
-    partition,
     hf_bitstring,
     excitation_order: int,
-    n_set=2000,
-    mask_intra=True,
+    #return_unscreened_term = False,
+    n_term=2000,
     allow_zero=False,
     sz_symmetry=True,
     refer_to_HF=True,
@@ -160,12 +159,8 @@ def generate_fermionic_excitation_terms(
     groups=None,
     characters=None,
     excitation_upperbound=None,
-    impose_point_group_symmetry=False,
-    impose_BeH2_point_group_symmetry=False,
-    impose_H2O_point_group_symmetry=False,
-    impose_N2_point_group_symmetry=False,
-    impose_LiH_point_group_symmetry=False,
-    as_qiskit=False,
+    impose_point_group_symmetry = False,
+    return_score_tensor = False 
 ):
     """
     generate QSE operators according to the absolute amplitude of t1/t2 in Hamiltonian.
@@ -182,16 +177,8 @@ def generate_fermionic_excitation_terms(
         molecule_type : string
         impose_point_group_symmetry: bool
     """
-    if (
-        impose_BeH2_point_group_symmetry
-        or impose_H2O_point_group_symmetry
-        or impose_LiH_point_group_symmetry
-        or impose_N2_point_group_symmetry
-    ):
-        raise Exception(
-            "This option is no longer used. Set impose_point_group_symmetry = True and molecule_type = xxx."
-        )
 
+    ### Generate score tensor
     if excitation_order == 1:
         t1 = extract_hopping_matrix(fermionic_hamiltonian)
         score_tensor = np.abs(np.copy(t1))
@@ -211,7 +198,7 @@ def generate_fermionic_excitation_terms(
         return _generate_fermionic_excitation_terms_three_body(
             fermionic_hamiltonian,
             hf_bitstring,
-            n_set,
+            n_term,
             refer_to_HF,
             excitation_upperbound=excitation_upperbound,
         )
@@ -222,8 +209,44 @@ def generate_fermionic_excitation_terms(
     assert not (
         score_tensor < 0
     ).any(), "input must be non-negative for the current implementation."
-    if mask_intra:
-        score_tensor = mask_intrasubgraph_elements(score_tensor, partition)
+    #if mask_intra:
+        #score_tensor = mask_intrasubgraph_elements(score_tensor, partition)
+
+    terms = sort_terms_by_score(
+        score_tensor,
+        hf_bitstring = hf_bitstring,
+        n_term = n_term,
+        allow_zero=allow_zero,
+        sz_symmetry=sz_symmetry,
+        refer_to_HF=refer_to_HF,
+        molecule_type=molecule_type,
+        mol=mol,
+        act_inds=act_inds,
+        groups=groups,
+        characters=characters,
+        impose_point_group_symmetry = impose_point_group_symmetry
+    )
+
+    if return_score_tensor:
+        return terms, score_tensor
+    return terms
+
+def sort_terms_by_score(
+    score_tensor,
+    n_term = 20,
+    allow_zero = False,
+    #return_unscreened_term = False,
+    hf_bitstring = None,
+    refer_to_HF  = False,
+    sz_symmetry = None,
+    molecule_type=None,
+    mol=None,
+    act_inds=None,
+    groups=None,
+    characters=None,
+    impose_point_group_symmetry = False,
+    verbose = 0
+):
 
     dim = score_tensor.shape[0]
     tensor_rank = len(score_tensor.shape)
@@ -245,6 +268,8 @@ def generate_fermionic_excitation_terms(
         # e.g. 8903 -> 8 9 0 3
         # if hf_bitstring = 1100000000, n_qubit = 10
         indices = _convert_arg_to_tensor_index(_arg, dim, tensor_rank=tensor_rank)
+        if verbose:
+            print(indices)
 
         # if tensor_order = 2,
         #    OK: (2, 0), (3, 0),...
@@ -263,6 +288,15 @@ def generate_fermionic_excitation_terms(
             inds_set.append(tuple(indices))
             sorted_inds_set.append(sorted(indices))
 
+            #if return_unscreened_term:
+                #if len(indices) == 2:
+                    #terms += [f"{indices[0]}^ {indices[1]}"]
+                #elif len(indices) == 4:
+                    #terms += [f"{indices[0]}^ {indices[1]}^ {indices[2]} {indices[3]}"]
+                #elif len(indices) == 6:
+                    #terms += [f"{indices[0]}^ {indices[1]}^ {indices[2]}^ {indices[3]} {indices[4]} {indices[5]}"]
+
+            #else:
             terms += fermionic_excitation_term_from_tensorind(
                 tuple(indices),
                 hf_bitstring,
@@ -276,27 +310,15 @@ def generate_fermionic_excitation_terms(
                 characters=characters,
             )
 
-            if n_set is not None:
-                if len(terms) >= n_set:
-                    terms = terms[:n_set]
+            if n_term is not None:
+                if len(terms) >= n_term:
+                    terms = terms[:n_term]
                     break
             _n += 1
         else:
             _n += 1
 
-    if as_qiskit:
-        # "8^ 9^ 0 1" -> "+_8 +_9 -_0 -_1"
-        terms = [
-            (" ").join(
-                [
-                    "%s_%d" % (["-", "+"][int("^" in string)], int(string.split("^")[0]))
-                    for string in term.split(" ")
-                ]
-            )
-            for term in terms
-        ]
     return terms
-
 
 def _check_excitation_upperbound(term, excitation_upperbound, hf_bitstring):
     n_particle = hf_bitstring.count("1")
@@ -431,12 +453,7 @@ def fermionic_excitation_term_from_tensorind(
     mol=None,
     act_inds=None,
     groups=None,
-    characters=None
-    #    impose_BeH2_point_group_symmetry = False,
-    #    impose_H2O_point_group_symmetry = False,
-    #    impose_N2_point_group_symmetry = False,
-    #    impose_LiH_point_group_symmetry = False,
-    # use_active_space=False
+    characters=None,
 ):
     """
     returns fermionic excitation term (e.g., "2^ 3^ 1 0") used for virtual subspace expansion.
@@ -1387,3 +1404,5 @@ def _is_point_group_symmetry_preserving_H2O_sto6g_old(term, use_active_space=Tru
     flag2 = set(c_pg) == set(a_pg)
 
     return flag1 or flag2
+
+

@@ -166,11 +166,9 @@ def generate_fermionic_excitation_terms(
     generate QSE operators according to the absolute amplitude of t1/t2 in Hamiltonian.
     attributes:
         fermionic_hamiltonian: openfermion operator
-        partition List[List[int]] : partition of subsystems
         hf_bitstring: Hartree-Fock occupation
         excitation_order         : 1 or 2, (t1 or t2)
-        n_set          : number of excitation operators
-        mask_intra : exclude t1 between intra-subsystem
+        n_term          : number of excitation operators
         allow_zero : include (i, j) with zero amplitude or not
         sz_symmetry : impose spin conservation
         refer_to_HF :  exclude c_i^ c_j with j \in unoccupied sites

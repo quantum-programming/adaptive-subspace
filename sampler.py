@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 # from derandomized import derandomized_classical_shadow
 from openfermion import QubitOperator
-from openfermion.linalg import get_sparse_operator
 from OverlappedGrouping.overlapped_grouping import OverlappedGrouping
-from qulacs import Observable, QuantumCircuit, QuantumState
-from qulacs.observable import create_observable_from_openfermion_text
+from qulacs import QuantumCircuit, QuantumState
 
+from lbcs_opt.var_opt_lagrange import find_optimal_beta_lagrange
+from lbcs_opt.var_opt_scipy import find_optimal_beta_scipy
 from utils import *
 
 
@@ -102,6 +102,28 @@ class LocalPauliShadowSampler_core(object):
        # サンプリングに対応するシミュレーション
         digits = meas_state.sampling(count = nshot_per_axis)
         return digits
+
+
+def local_dists_optimal(ham, num_qubits, objective, method, β_initial=None, bitstring_HF=None):
+        """Find optimal probabilities beta_{i,P} and return as dictionary
+        attn: qiskit ordering"""
+        assert objective in ['diagonal', 'mixed']
+        assert method in ['scipy', 'lagrange']
+
+        dic_tf = {
+            "".join([{0:"I",1:"X",2:"Y",3:"Z"}[s] for s in create_pauli_id_from_openfermion(k, num_qubits)]): v
+            for k, v in ham.terms.items() if len(k)>0
+        }
+        if method == 'scipy':
+            beta_opt =  find_optimal_beta_scipy(dic_tf, num_qubits, objective,
+                                           β_initial=β_initial, bitstring_HF=bitstring_HF)
+        else:
+            # method == 'lagrange'
+            beta_opt = find_optimal_beta_lagrange(dic_tf, num_qubits, objective,
+                                              tol=1.0e-5, iter=10000,
+                                              β_initial=β_initial, bitstring_HF=bitstring_HF)
+
+        return np.array(list(reversed(list(beta_opt.values()))))
 
 
 def get_samples(
@@ -263,3 +285,4 @@ def estimate_exp_ogm(
         exp += coef* np.mean(val_array)
 
     return exp
+

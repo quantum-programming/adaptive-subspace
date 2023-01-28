@@ -217,7 +217,8 @@ def estimate_exp_lbcs(
         ############################
         # beta_p_iの計算をもう少し早くできそう
         beta_p_i = np.array([[beta[i][pauli-1] for i,pauli in enumerate(meas_axes_row)] for meas_axes_row in meas_axes])
-        arr = (np.array(meas_axes) == np.array(pauli)) * (beta_p_i+1e-6 )**-1 
+        # arr = (np.array(meas_axes) == np.array(pauli)) * (beta_p_i+1e-6 )**-1 
+        arr = (np.array(meas_axes) == np.array(pauli)) * np.reciprocal(beta_p_i, where=beta_p_i != 0)
         arr = (-1) ** np.array(samples) * arr 
         arr += (np.array(pauli) == 0) 
         val_array =  np.prod(arr, axis = -1).copy()

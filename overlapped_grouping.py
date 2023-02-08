@@ -2,6 +2,7 @@ import math
 from typing import Tuple
 
 import numpy as np
+from openfermion import count_qubits
 from openfermion.ops import QubitOperator
 from scipy.optimize import minimize
 from scipy.optimize.optimize import OptimizeResult
@@ -257,7 +258,7 @@ class overlappedGrouping(object):
         pauli_dict = {"X": 1, "Y": 2, "Z": 3}
         op_terms = {k: v for k, v in operator.terms.items() if k != ()}
         num_ops = len(op_terms)
-        num_qubit = operator.many_body_order()
+        num_qubit = count_qubits(operator)
         observ = np.zeros((num_ops, num_qubit + 1))
         for idx, (ops, coef) in enumerate(op_terms.items()):
             observ[idx, 0] = coef

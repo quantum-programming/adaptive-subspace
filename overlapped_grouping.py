@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 from scipy.optimize.optimize import OptimizeResult
 
 
-class overlappedGrouping(object):
+class OverlappedGrouping(object):
     def __init__(self, op_hamiltonian: QubitOperator, T: int):
         """Initialize overlapped grouping class
 
@@ -246,7 +246,7 @@ class overlappedGrouping(object):
 
         return result
 
-    def _get_hamiltonian_from_openfermion(self, operator: QubitOperator) -> np.ndarray:
+    def _get_hamiltonian_from_openfermion(self, operator: QubitOperator, num_qubit: int = None) -> np.ndarray:
         """convert operators in openfermion form into obserbables in matrix form
 
         Args:
@@ -258,7 +258,8 @@ class overlappedGrouping(object):
         pauli_dict = {"X": 1, "Y": 2, "Z": 3}
         op_terms = {k: v for k, v in operator.terms.items() if k != ()}
         num_ops = len(op_terms)
-        num_qubit = count_qubits(operator)
+        if num_qubit is None:
+            num_qubit = count_qubits(operator)
         observ = np.zeros((num_ops, num_qubit + 1))
         for idx, (ops, coef) in enumerate(op_terms.items()):
             observ[idx, 0] = coef

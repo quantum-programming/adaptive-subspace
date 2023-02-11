@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 # from derandomized import derandomized_classical_shadow
 from openfermion import QubitOperator
-from OverlappedGrouping.overlapped_grouping import OverlappedGrouping
 from qulacs import QuantumCircuit, QuantumState
 
 from lbcs_opt.var_opt_lagrange import find_optimal_beta_lagrange
 from lbcs_opt.var_opt_scipy import find_optimal_beta_scipy
+from overlapped_grouping import OverlappedGrouping
 from utils import *
 
 
@@ -123,7 +123,7 @@ def local_dists_optimal(ham, num_qubits, objective, method, β_initial=None, bit
                                               tol=1.0e-5, iter=10000,
                                               β_initial=β_initial, bitstring_HF=bitstring_HF)
 
-        return np.array(list(reversed(list(beta_opt.values()))))
+        return np.array(list(reversed(list(beta_opt.values())))).round(4)
 
 
 def get_samples(
@@ -215,8 +215,9 @@ def estimate_exp_lbcs(
         ############################
         # estimate expectation value
         ############################
-        # beta_p_iの計算をもう少し早くできそう
-        beta_p_i = np.array([[beta[i][pauli-1] for i,pauli in enumerate(meas_axes_row)] for meas_axes_row in meas_axes])
+        # beta_p_iの計算をもう少し早くできそう 
+        beta_p_i = beta[range(sampler.n_qubit), meas_axes-1]
+        # beta_p_i = np.array([[beta[i][pauli-1] for i,pauli in enumerate(meas_axes_row)] for meas_axes_row in meas_axes])
         # arr = (np.array(meas_axes) == np.array(pauli)) * (beta_p_i+1e-6 )**-1 
         arr = (np.array(meas_axes) == np.array(pauli)) * np.reciprocal(beta_p_i, where=beta_p_i != 0)
         arr = (-1) ** np.array(samples) * arr 
@@ -256,7 +257,7 @@ def estimate_exp_ogm(
     
     # precomuted values
     grouper = OverlappedGrouping(None, None)
-    meas_as_arr = grouper._get_hamiltonian_from_openfermion(meas_dist)
+    meas_as_arr = grouper._get_hamiltonian_from_openfermion(meas_dist, num_qubit=sampler.n_qubit)
     pr = meas_as_arr[:, 0]
     meas = meas_as_arr[:, 1:][:, ::-1]
     

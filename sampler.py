@@ -100,7 +100,7 @@ class LocalPauliShadowSampler_core(object):
         meas_circuit.update_quantum_state(meas_state)
 
        # サンプリングに対応するシミュレーション
-        digits = meas_state.sampling(count = nshot_per_axis)
+        digits = meas_state.sampling(nshot_per_axis)
         return digits
 
 

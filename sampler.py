@@ -190,6 +190,8 @@ def estimate_exp_lbcs(
     operator: QubitOperator,
     sampler: LocalPauliShadowSampler_core,
     beta: Iterable[Iterable],
+    meas_axes: Iterable[Iterable] = None,
+    samples: np.ndarray = None,
 ) -> float:
     """
     Estimate expectation value of Observable for Locally Biased Classical Shadow
@@ -203,8 +205,10 @@ def estimate_exp_lbcs(
         float: Expectation value
     """
 
-    meas_axes = sampler.generate_random_measurement_axis(lbcs_beta=beta)
-    samples = get_samples(sampler, meas_axes)
+    if meas_axes is None:
+        meas_axes = sampler.generate_random_measurement_axis(lbcs_beta=beta)
+    if samples is None:
+        samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
 
     exp = 0

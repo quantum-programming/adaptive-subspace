@@ -262,7 +262,7 @@ class OverlappedGrouping(object):
             num_qubit = count_qubits(operator)
         observ = np.zeros((num_ops, num_qubit + 1))
         for idx, (ops, coef) in enumerate(op_terms.items()):
-            observ[idx, 0] = coef
+            observ[idx, 0] = coef.real
             for q_idx, pauli in ops:
                 observ[idx, q_idx + 1] = pauli_dict[pauli]
         return observ

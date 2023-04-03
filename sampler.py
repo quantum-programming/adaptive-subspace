@@ -232,7 +232,9 @@ def estimate_exp_lbcs(
 def estimate_exp_ogm(
     operator: QubitOperator,
     sampler: LocalPauliShadowSampler_core,
-    meas_dist: Iterable[Iterable],
+    meas_dist: Iterable[Iterable], 
+    meas_axes: Iterable[Iterable] = None,
+    samples: np.ndarray = None,
 ) -> float :
     """
     Estimate expectation value of Observable for Locally Biased Classical Shadow
@@ -250,9 +252,10 @@ def estimate_exp_ogm(
     def get_chi(grouper, q_i, pr, meas):
             return sum([p for p, m in zip(pr, meas) if  grouper._if_commute(q_i, m)])
 
-
-    meas_axes = sampler.generate_random_measurement_axis(ogm_meas_set=meas_dist)
-    samples = get_samples(sampler, meas_axes)
+    if meas_axes is None:
+        meas_axes = sampler.generate_random_measurement_axis(ogm_meas_set=meas_dist)
+    if samples is None:
+        samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
     
     # precomuted values

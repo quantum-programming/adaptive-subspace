@@ -173,7 +173,7 @@ def estimate_exp(operator: QubitOperator, sampler: LocalPauliShadowSampler_core)
     for op, coef in operator.terms.items():
         
         pauli_ids = create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1]
-        pauli = np.array([pauli_ids]*sampler.Ntot)
+        pauli = np.tile(pauli_ids, (sampler.Ntot,1))
         
         # This is the core of estimator, which corresponds to Algotihm 1 of
         # https://arxiv.org/abs/2006.15788
@@ -214,7 +214,7 @@ def estimate_exp_lbcs(
     exp = 0
     for op, coef in operator.terms.items():
         pauli_ids = create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1]
-        pauli = np.array([pauli_ids]*sampler.Ntot)
+        pauli = np.tile(pauli_ids, (sampler.Ntot,1))
 
         ############################
         # estimate expectation value
@@ -226,7 +226,7 @@ def estimate_exp_lbcs(
         arr = (np.array(meas_axes) == np.array(pauli)) * np.reciprocal(beta_p_i, where=beta_p_i != 0)
         arr = (-1) ** np.array(samples) * arr 
         arr += (np.array(pauli) == 0) 
-        val_array =  np.prod(arr, axis = -1).copy()
+        val_array =  np.prod(arr, axis = -1)
 
         exp += coef* np.mean(val_array)
 

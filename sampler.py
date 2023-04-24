@@ -288,7 +288,9 @@ def estimate_exp_ogm(
         if chi_dict[tuple(pauli_ids)] == 0:
             val_array = 0
         else: 
-            val_array =  chi_dict[tuple(pauli_ids)]**(-1) * np.array([delta_dict[tuple(pauli_ids)][tuple(axes)] for axes in meas_axes])
+            unique_axes, inverse_indices = np.unique(meas_axes, axis=0, return_inverse=True)
+            mapped_values = np.array([delta_dict[tuple(pauli_ids)][tuple(axes)] for axes in unique_axes])
+            val_array =  chi_dict[tuple(pauli_ids)]**(-1) * mapped_values[inverse_indices]
 
         val_array *= np.prod(samples_pm[:, np.array(pauli_ids) != 0], axis = -1)     
         exp += coef* np.mean(val_array)

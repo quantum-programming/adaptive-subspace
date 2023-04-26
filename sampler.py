@@ -6,6 +6,7 @@ import pandas as pd
 from openfermion import QubitOperator
 from qulacs import QuantumCircuit, QuantumState
 
+from derandomized import derandomized_classical_shadow
 from lbcs_opt.var_opt_lagrange import find_optimal_beta_lagrange
 from lbcs_opt.var_opt_scipy import find_optimal_beta_scipy
 from overlapped_grouping import OverlappedGrouping
@@ -305,3 +306,48 @@ def estimate_exp_ogm(
 
     return exp
 
+def estimate_exp_derand(
+    operator: QubitOperator,
+    sampler: LocalPauliShadowSampler_core,
+    meas_axes: Iterable[Iterable] = None,
+    samples: np.ndarray = None
+) -> float:
+    """
+    Estimate expectation value of Observable for Basic Classical Shadow
+
+    Args:
+        operator (QubitOperator): Observable such as Hamiltonian
+        sampler (LocalPauliShadowSampler_core): Sampler Class 
+
+    Returns:
+        float: Expectation value
+    """
+    
+    if meas_axes is None:
+        meas_axes = derandomized_classical_shadow(operator, sampler.Ntot, sampler.n_qubit)
+    if samples is None:
+        samples = get_samples(sampler, meas_axes)
+    assert np.array(meas_axes).shape == np.array(samples).shape
+
+    exp = 0
+    for op, coef in operator.terms.items():
+        pauli_ids = np.array(create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1])
+        sum_product, cnt_match = 0, 0
+        for i in range(len(samples)):
+            sample = np.array(samples[i])
+            axes = np.array(meas_axes[i])
+            # not_match = False
+            # product = 1
+            arr = np.where(pauli_ids != 0)
+            is_match = np.array_equiv(axes[arr], pauli_ids[arr])
+            if not is_match:
+                continue
+            sample_prod = np.where(sample == 1, -1, 1)
+            prod = np.prod(sample_prod[arr])
+            sum_product += prod
+            cnt_match += 1
+        if cnt_match == 0:
+            raise RuntimeError("not match")
+        exp += coef * sum_product / cnt_match        
+    return exp
+ 

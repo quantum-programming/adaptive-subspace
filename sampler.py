@@ -329,25 +329,19 @@ def estimate_exp_derand(
         samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
 
+    meas_axes = np.array(meas_axes)
     exp = 0
     for op, coef in operator.terms.items():
         pauli_ids = np.array(create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1])
-        sum_product, cnt_match = 0, 0
-        for i in range(len(samples)):
-            sample = np.array(samples[i])
-            axes = np.array(meas_axes[i])
-            # not_match = False
-            # product = 1
-            arr = np.where(pauli_ids != 0)
-            is_match = np.array_equiv(axes[arr], pauli_ids[arr])
-            if not is_match:
-                continue
-            sample_prod = np.where(sample == 1, -1, 1)
-            prod = np.prod(sample_prod[arr])
-            sum_product += prod
-            cnt_match += 1
-        if cnt_match == 0:
-            raise RuntimeError("not match")
-        exp += coef * sum_product / cnt_match        
+        arr = np.where(pauli_ids != 0)[0]
+        mask = np.all(np.array(meas_axes)[:, arr] == pauli_ids[arr], axis=1)
+        cnt_match = np.sum(mask)
+
+        if cnt_match != 0:
+            sample_prod = np.where(samples == 1, -1, 1)
+            prod = np.prod(sample_prod[:, arr], axis=1)
+            sum_product = np.sum(mask * prod)
+            exp += coef * sum_product / cnt_match    
+
     return exp
  

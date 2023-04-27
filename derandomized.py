@@ -87,4 +87,4 @@ def derandomized_classical_shadow(
         # if sum(hit_operator) == len(operators):
         #     print(m + 1)
         #     return meas_axes[: (m + 1)]
-    return meas_axes
+    return np.array(meas_axes)

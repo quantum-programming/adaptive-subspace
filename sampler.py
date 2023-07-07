@@ -61,7 +61,7 @@ class LocalPauliShadowSampler_core(object):
             # pandasの処理をnp処理に変更できるかも
             df = pd.DataFrame(
                 [
-                    create_pauli_id_from_openfermion(op, self.n_qubit)[::-1]
+                    create_pauli_id_from_openfermion(op, self.n_qubit)
                     for op in ogm_meas_set.terms
                 ]
             )
@@ -111,9 +111,10 @@ def local_dists_optimal(ham, num_qubits, objective, method, β_initial=None, bit
         assert objective in ['diagonal', 'mixed']
         assert method in ['scipy', 'lagrange']
 
+        ham_in = pad_op(ham, num_qubits)
         dic_tf = {
             "".join([{0:"I",1:"X",2:"Y",3:"Z"}[s] for s in create_pauli_id_from_openfermion(k, num_qubits)]): v
-            for k, v in ham.terms.items() if len(k)>0
+            for k, v in ham_in.terms.items() if len(k)>0
         }
         if method == 'scipy':
             beta_opt =  find_optimal_beta_scipy(dic_tf, num_qubits, objective,
@@ -125,6 +126,7 @@ def local_dists_optimal(ham, num_qubits, objective, method, β_initial=None, bit
                                               β_initial=β_initial, bitstring_HF=bitstring_HF)
 
         return np.array(list(reversed(list(beta_opt.values())))).round(4)
+
 
 
 def get_samples(
@@ -143,14 +145,14 @@ def get_samples(
 
     sample_digits = [
         sampler._sample_digits(_meas_ax, nshot_per_axis=sampler.m)
-        for _meas_ax in meas_axes
+        for _meas_ax in meas_axes[:,::-1]
     ]
     sample_digits = sum(sample_digits, [])  # 整形
     bitstring_array = [
         format(_samp, "b").zfill(sampler.n_qubit) for _samp in sample_digits
     ]
     samples = np.array(
-        [[int(_b) for _b in _bitstring][::-1] for _bitstring in bitstring_array]
+        [[int(_b) for _b in _bitstring] for _bitstring in bitstring_array]
     )
     return samples
 
@@ -172,7 +174,7 @@ def estimate_exp(
         float: Expectation value
     """
     if meas_axes is None:
-        meas_axes = sampler.generate_random_measurement_axis(lbcs_beta=beta)
+        meas_axes = sampler.generate_random_measurement_axis()
     if samples is None:
         samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
@@ -181,7 +183,7 @@ def estimate_exp(
     exp = 0
     for op, coef in operator.terms.items():
         
-        pauli_ids = create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1]
+        pauli_ids = create_pauli_id_from_openfermion(op, sampler.n_qubit)
         pauli = np.tile(pauli_ids, (sampler.Ntot,1))
         
         # This is the core of estimator, which corresponds to Algotihm 1 of
@@ -222,7 +224,7 @@ def estimate_exp_lbcs(
 
     exp = 0
     for op, coef in operator.terms.items():
-        pauli_ids = create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1]
+        pauli_ids = create_pauli_id_from_openfermion(op, sampler.n_qubit)
         pauli = np.tile(pauli_ids, (sampler.Ntot,1))
 
         ############################
@@ -275,10 +277,10 @@ def estimate_exp_ogm(
     grouper = OverlappedGrouping(None, None)
     meas_as_arr = grouper._get_hamiltonian_from_openfermion(meas_dist, num_qubit=sampler.n_qubit)
     pr = meas_as_arr[:, 0]
-    meas = meas_as_arr[:, 1:][:, ::-1]
+    meas = meas_as_arr[:, 1:]
     
     pauli_ids_list = [
-        create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1] for op in operator.terms
+        create_pauli_id_from_openfermion(op, sampler.n_qubit) for op in operator.terms
     ]
     chi_dict = {
         tuple(pauli_id): get_chi(grouper, pauli_id, pr, meas) for pauli_id in pauli_ids_list
@@ -332,7 +334,7 @@ def estimate_exp_derand(
     meas_axes = np.array(meas_axes)
     exp = 0
     for op, coef in operator.terms.items():
-        pauli_ids = np.array(create_pauli_id_from_openfermion(op, sampler.n_qubit)[::-1])
+        pauli_ids = np.array(create_pauli_id_from_openfermion(op, sampler.n_qubit))
         arr = np.where(pauli_ids != 0)[0]
         mask = np.all(np.array(meas_axes)[:, arr] == pauli_ids[arr], axis=1)
         cnt_match = np.sum(mask)

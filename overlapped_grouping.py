@@ -7,6 +7,7 @@ from openfermion.ops import QubitOperator
 from scipy.optimize import minimize
 from scipy.optimize.optimize import OptimizeResult
 
+from utils import pad_op
 
 class OverlappedGrouping(object):
     def __init__(self, op_hamiltonian: QubitOperator, T: int):
@@ -19,7 +20,7 @@ class OverlappedGrouping(object):
         self.op_hamiltonian = op_hamiltonian
         self.T = T
 
-    def get_meas_and_p(self) -> QubitOperator:
+    def get_meas_and_p(self, num_qubit: int = None) -> QubitOperator:
         """get measurement set and its probability distribution
 
         Returns:
@@ -27,7 +28,8 @@ class OverlappedGrouping(object):
             Note that probability distribution is interpreted as coefficients of operators.
         """
         MAX_STEP = 10
-        observ = self._get_hamiltonian_from_openfermion(self.op_hamiltonian)
+        op_in = pad_op(self.op_hamiltonian, num_qubit)
+        observ = self._get_hamiltonian_from_openfermion(op_in, num_qubit)
         [m, Nq] = observ.shape
         Nq = Nq - 1
 

@@ -9,20 +9,20 @@ from qulacs.observable import create_observable_from_openfermion_text
 from openfermion import QubitOperator
 
 from typing import List
-from utils import create_pauli_id_from_openfermion
+from utils import create_pauli_id_from_openfermion, pad_op
 
 
 def derandomized_classical_shadow(
-    operators: List[QubitOperator], meas_cnt: int, n_qubit: int
+    operators: QubitOperator, meas_cnt: int, n_qubit: int
 ):
     
     epsilon = 0.95
     res = 0
     nu = 1 - np.exp(-(epsilon**2) / 2)
-
+    operators_in = pad_op(operators, n_qubit)
     # 0:'I', 1:'X', 2:'Y', 3:'Z'
-    pauli_ids = np.array([create_pauli_id_from_openfermion(op, n_qubit)[::-1] for op in operators.terms])
-    num_terms = len(operators.terms)
+    pauli_ids = np.array([create_pauli_id_from_openfermion(op, n_qubit) for op in operators_in.terms])
+    num_terms = len(operators_in.terms)
 
     meas_axes = [[] for i in range(meas_cnt)]
 

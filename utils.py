@@ -1,12 +1,28 @@
 from ast import operator
 from typing import Tuple, Union
+import itertools
 
-from openfermion import QubitOperator, utils
+from openfermion import QubitOperator, count_qubits, utils
+
+
 
 # from create_pauli import create_pauli_id_from_openfermion
 
 
 hamiltonian_names = ["h2_4bk.data", "h2_8bk.data", "LiH_12bk.data", "BeH2_14bk.data"]
+
+def pad_op(op: QubitOperator, num_qubit: int = None):
+    if num_qubit is None:
+        num_qubit = count_qubits(op)
+
+    pad_idx = set(range(num_qubit))
+    for op_label, coef in op.terms.items():
+        if coef != 0:
+            pad_idx -= set(itertools.chain.from_iterable(op_label))
+        if len(pad_idx) == 0:
+            break
+    padder = QubitOperator(" ".join(f"Z{i}" for i in pad_idx))
+    return op * padder
 
 
 def if_single_pauli_product(operator):

@@ -1,1 +1,0 @@
-{"molecule_type": "N2", "basis_type": "sto-6g", "n_qubit": 20, "n_term_t1": 0, "n_term_t2": 5, "dim": 6, "n_term_t1_1st": 0, "n_term_t2_1st": 5, "L": 2.0, "maxsize": 10, "use_PG": true, "save_QSE_operator": false, "use_cc_based_partition": true}

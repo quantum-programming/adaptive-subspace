@@ -73,7 +73,6 @@ class LocalPauliShadowSampler_core(object):
             # meas_axes = list(np.random.randint(1, 4, size=self.n_qubit))
             meas_axes = np.random.randint(1, 4, size=(self.Ntot, self.n_qubit))
         return meas_axes
-        
 
     def _sample_digits(self, meas_axis, nshot_per_axis = 1):
         """
@@ -100,33 +99,32 @@ class LocalPauliShadowSampler_core(object):
 
         meas_circuit.update_quantum_state(meas_state)
 
-       # サンプリングに対応するシミュレーション
+        # サンプリングに対応するシミュレーション
         digits = meas_state.sampling(nshot_per_axis)
         return digits
 
 
 def local_dists_optimal(ham, num_qubits, objective, method, β_initial=None, bitstring_HF=None):
-        """Find optimal probabilities beta_{i,P} and return as dictionary
-        attn: qiskit ordering"""
-        assert objective in ['diagonal', 'mixed']
-        assert method in ['scipy', 'lagrange']
+    """Find optimal probabilities beta_{i,P} and return as dictionary
+    attn: qiskit ordering"""
+    assert objective in ['diagonal', 'mixed']
+    assert method in ['scipy', 'lagrange']
 
-        ham_in = pad_op(ham, num_qubits)
-        dic_tf = {
-            "".join([{0:"I",1:"X",2:"Y",3:"Z"}[s] for s in create_pauli_id_from_openfermion(k, num_qubits)]): v
-            for k, v in ham_in.terms.items() if len(k)>0
-        }
-        if method == 'scipy':
-            beta_opt =  find_optimal_beta_scipy(dic_tf, num_qubits, objective,
-                                           β_initial=β_initial, bitstring_HF=bitstring_HF)
-        else:
-            # method == 'lagrange'
-            beta_opt = find_optimal_beta_lagrange(dic_tf, num_qubits, objective,
-                                              tol=1.0e-5, iter=10000,
-                                              β_initial=β_initial, bitstring_HF=bitstring_HF)
+    ham_in = pad_op(ham, num_qubits)
+    dic_tf = {
+        "".join([{0:"I",1:"X",2:"Y",3:"Z"}[s] for s in create_pauli_id_from_openfermion(k, num_qubits)]): v
+        for k, v in ham_in.terms.items() if len(k)>0
+    }
+    if method == 'scipy':
+        beta_opt =  find_optimal_beta_scipy(dic_tf, num_qubits, objective,
+                                        β_initial=β_initial, bitstring_HF=bitstring_HF)
+    else:
+        # method == 'lagrange'
+        beta_opt = find_optimal_beta_lagrange(dic_tf, num_qubits, objective,
+                                            tol=1.0e-5, iter=10000,
+                                            β_initial=β_initial, bitstring_HF=bitstring_HF)
 
-        return np.array(list(reversed(list(beta_opt.values())))).round(4)
-
+    return np.array(list(reversed(list(beta_opt.values())))).round(4)
 
 
 def get_samples(
@@ -145,7 +143,7 @@ def get_samples(
 
     sample_digits = [
         sampler._sample_digits(_meas_ax, nshot_per_axis=sampler.m)
-        for _meas_ax in meas_axes[:,::-1]
+        for _meas_ax in meas_axes[:, ::-1]
     ]
     sample_digits = sum(sample_digits, [])  # 整形
     bitstring_array = [
@@ -179,7 +177,6 @@ def estimate_exp(
         samples = get_samples(sampler, meas_axes)
     assert np.array(meas_axes).shape == np.array(samples).shape
 
-
     exp = 0
     for op, coef in operator.terms.items():
         
@@ -191,11 +188,12 @@ def estimate_exp(
         arr = (np.array(meas_axes) == np.array(pauli)) * 3
         arr = (-1) ** np.array(samples) * arr 
         arr += (np.array(pauli) == 0)
-        val_array =  np.prod(arr, axis = -1)
+        val_array = np.prod(arr, axis=-1)
 
-        exp += coef * np.mean(val_array)        
+        exp += coef * np.mean(val_array)      
 
     return exp
+
 
 def estimate_exp_lbcs(
     operator: QubitOperator,

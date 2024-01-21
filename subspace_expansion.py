@@ -14,6 +14,7 @@ from openfermion.transforms import jordan_wigner
 
 from molecule_info import MoleculeInfo
 from overlapped_grouping import OverlappedGrouping
+from qubit_wise_commuting import group_commuting
 from derandomized import derandomized_classical_shadow
 from sampler import (
     LocalPauliShadowSampler_core,
@@ -189,7 +190,7 @@ class SubspaceExpansion(object):
                                 meas_axes,
                                 samples
                             )
-                        elif self.params["method"] == "OGM":
+                        elif self.params["method"] in ["OGM", "qubit_wise_commuting"] :
                             pauli_exp_dict[term] = estimate_exp_ogm(
                                 QubitOperator(term),
                                 self.sampler,
@@ -201,7 +202,6 @@ class SubspaceExpansion(object):
             else:
                 result_mat[i, j] = result_mat[j, i]
             return
-
         qse_dimension = len(self.qse_ops)
         samples = get_samples(self.sampler, meas_axes)
         H_eff = np.zeros([qse_dimension]*2, dtype=complex)
@@ -237,22 +237,29 @@ class SubspaceExpansion(object):
         alpha_list = []
         for i in range(1, len(self.qse_ops)):
             try:
-                energy_excited, alpha_se = self._solve_nlev_regularized_gen_eig(
+                ret = self._solve_nlev_regularized_gen_eig(
                     h_eff,
                     s_mtrc,
                     n_lev=i,
                     threshold=threshold,
                     return_vec=return_vec,
                 )
+                if return_vec:
+                    energy_excited, alpha_se = ret
+                    alpha_list.append(alpha_se)
+                else:
+                    energy_excited = ret
 
                 energies_excited.append(energy_excited)
-                alpha_list.append(alpha_se)
             except scipy.linalg.LinAlgError:
                 break
         best_idx = np.argmin(abs(np.array(energies_excited) - true_energy_excited))
         if self.params["verbose"] >= 2:
             print("best n_lev:", best_idx + 1)
-        return energies_excited[best_idx], alpha_list[best_idx]
+        if return_vec:
+            return energies_excited[best_idx], alpha_list[best_idx]
+        else:
+            return energies_excited[best_idx]
 
     def execute_statistics(self, molecule):
         self.h_ij, self.s_ij = self._get_h_s_ij(molecule.hamiltonian)
@@ -307,6 +314,13 @@ class SubspaceExpansion(object):
                 self.sampler.generate_random_measurement_axis(ogm_meas_set=ogm_meas_set)
                 for _ in range(self.params["n_trial"])
             ]
+        elif self.params["method"] == "qubit_wise_commuting":
+            grouped_meas_set = group_commuting(h_d_jw)
+            self.ogm_meas_set = grouped_meas_set
+            meas_axes_list = [
+                self.sampler.generate_random_measurement_axis(ogm_meas_set=grouped_meas_set)
+                for _ in range(self.params["n_trial"])
+            ]
         elif self.params["method"] == "naive_LBCS":
             beta_eff = {}
             for (i, j), h_ij_op in self.h_ij.items():
@@ -349,7 +363,7 @@ class SubspaceExpansion(object):
                     molecule.energy_excited,
                     threshold=1/np.sqrt(self.params["shots"]),
                     return_vec=False,
-                )[0]
+                )
                 for h_eff, s_mtrc in zip(h_eff_list, s_mtrc_list)
             ]
         else:

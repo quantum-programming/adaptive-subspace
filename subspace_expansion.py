@@ -352,7 +352,7 @@ class SubspaceExpansion(object):
             with open(f"{dir_name}/h_eff_list.pkl", "wb") as f:
                 pickle.dump(h_eff_list, f)
             with open(f"{dir_name}/s_mtrc_list.pkl", "wb") as f:
-                pickle.dump(h_eff_list, f)
+                pickle.dump(s_mtrc_list, f)
             with open(f"{dir_name}/params.json", "w") as f:
                 json.dump(self.params, f)
         if self.params["n_lev"] == "auto":

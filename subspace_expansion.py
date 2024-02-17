@@ -151,7 +151,7 @@ class SubspaceExpansion(object):
                     s_ij[i, j] = utils.hermitian_conjugated(term_i) * term_j
                 else:
                     h_ij[i, j] = h_ij[j, i]
-                    s_ij[j, i] = s_ij[j, i]
+                    s_ij[i, j] = s_ij[j, i]
         return h_ij, s_ij
 
     def estimate_qse_matrix_elements(self, meas_axes):

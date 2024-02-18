@@ -88,4 +88,21 @@ print(estimate_exp_ogm(ham_h2_jw, Sampler,meas_dist = meas_dist))
 ```
 > -1.8776611085760964   
 -1.8798839567797456  
- -1.8496958629294746  
+ -1.8496958629294746
+
+
+## How to cite
+If you use this code, please cite "Adaptive measurement strategy for quantum subspace methods" as follows: 
+```
+@article{nakamura2023adaptive,
+  title={Adaptive measurement strategy for quantum subspace methods},
+  author={Nakamura, Yuma and Yano, Yoshichika and Yoshioka, Nobuyuki},
+  journal={arXiv preprint arXiv:2311.07893},
+  year={2023}
+}
+```
+
+## Licence
+Copyright (c) 2024 Nobuyuki Yoshioka
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

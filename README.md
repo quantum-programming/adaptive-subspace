@@ -1,4 +1,4 @@
-# shadow-tools
+# Adaptive measurement strategy for subspace methods
 
 ## OGM
 ```python

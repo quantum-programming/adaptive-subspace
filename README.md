@@ -92,6 +92,7 @@ plt.show()
 ![image](https://github.com/YumaNK/adaptive-subspace/assets/19603134/c12000f6-df76-4ead-8c02-1d480717710b)
 
 
+For more detail, refer [reproduce_experiment.ipynb](https://github.com/quantum-programming/adaptive-subspace/blob/main/reproduce_experiment.ipynb).
 
 ## How to cite
 If you use this code, please cite "Adaptive measurement strategy for quantum subspace methods" as follows: 

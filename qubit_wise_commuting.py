@@ -5,15 +5,17 @@ from collections import defaultdict
 
 from openfermion import count_qubits, QubitOperator
 
+
 def create_pauli_magical_mat_from_openfermion(operator: QubitOperator):
     n_qubit = count_qubits(operator)
-    
+
     id_dict = {"I": 0, "X": 2, "Y": 3, "Z": 1}
     mat = np.zeros((len(operator.terms), n_qubit))
     for i, term in enumerate(operator.terms):
-        for j, pauli_id in term: 
+        for j, pauli_id in term:
             mat[i, j] = id_dict[pauli_id]
     return mat[:, ::-1]
+
 
 def noncommutation_graph(operator: QubitOperator):
     """Create an edge list representing the non-commutation graph (Pauli Graph).
@@ -30,8 +32,9 @@ def noncommutation_graph(operator: QubitOperator):
     # same.  In other cases, it is non-zero (truth-y).
     qubit_anticommutation_mat = (mat1 * mat2) * (mat1 - mat2)
     adjacency_mat = np.logical_or.reduce(qubit_anticommutation_mat, axis=2)
-    
+
     return list(zip(*np.where(np.triu(adjacency_mat, k=1))))
+
 
 def create_graph(operator: QubitOperator):
     """Transform measurement operator grouping problem into graph coloring problem
@@ -46,6 +49,7 @@ def create_graph(operator: QubitOperator):
     graph.add_edges_from_no_data(edges)
     return graph
 
+
 def group_commuting(operator: QubitOperator) -> QubitOperator:
     """Partition a PauliList into sets of qubit-wise commuting Pauli strings.
 
@@ -59,7 +63,7 @@ def group_commuting(operator: QubitOperator) -> QubitOperator:
     groups = defaultdict(list)
     for idx, color in coloring_dict.items():
         groups[color].append(idx)
-    ops_list = np.array(list(operator.terms.keys()),dtype=object)
+    ops_list = np.array(list(operator.terms.keys()), dtype=object)
     groups_mapped = [[ops_list[idx] for idx in group] for group in groups.values()]
-    groups_unpacked = [set([g for subgroupg in group for g in  subgroupg]) for group in groups_mapped]
-    return sum([QubitOperator(list(group))/len(groups) for group in groups_unpacked])
+    groups_unpacked = [set([g for subgroupg in group for g in subgroupg]) for group in groups_mapped]
+    return sum([QubitOperator(list(group)) / len(groups) for group in groups_unpacked])

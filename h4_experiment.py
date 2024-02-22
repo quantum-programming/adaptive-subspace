@@ -20,27 +20,29 @@ from sampler import local_dists_optimal
 def _convert_spin_sector(ham_f):
     "convert |↑↓↑↓...> representation to |↑↑...↓↓...> representation"
     n = count_qubits(ham_f)
-    n_half = int(n/2)
-    index_map = {i: int(i/2) if i % 2 == 0 else n_half + int((i-1)/2) for i in range(n)}
+    n_half = int(n / 2)
+    index_map = {i: int(i / 2) if i % 2 == 0 else n_half + int((i - 1) / 2) for i in range(n)}
     ham_convert = FermionOperator()
     ham_convert.terms = {tuple((index_map[i], j) for i, j in term): coef for term, coef in ham_f.terms.items()}
     return ham_convert
 
 
 def _get_h4_hamiltonian(length):
-    geom = [("H", (-length/2*3, 0, 0)), ("H", (-length/2, 0, 0)),("H", (length/2, 0, 0)), ("H", (length/2*3, 0, 0))]
+    geom = [
+        ("H", (-length / 2 * 3, 0, 0)),
+        ("H", (-length / 2, 0, 0)),
+        ("H", (length / 2, 0, 0)),
+        ("H", (length / 2 * 3, 0, 0)),
+    ]
     basis_type = "sto-6g"
 
     mol = gto.M(atom=geom, basis=basis_type)
-    # SCF波動関数のオブジェクトを生成。ここではRHFを使用する。
+    # Generate the object for the SCF wave function. Here, we will use the RHF.
     mf = scf.RHF(mol)
     mf.verbose = 0
-    # SCF計算の実行, エネルギーが得られる(-74.96444758277)
     mf.run()
 
-    molecular_ham = get_molecular_hamiltonian_generalAS(
-        mol, pyscf_mf=mf
-    )
+    molecular_ham = get_molecular_hamiltonian_generalAS(mol, pyscf_mf=mf)
 
     # molecular_ham = molecule.get_molecular_hamiltonian(occ_inds, act_inds)
     ham_f = get_fermion_operator(molecular_ham)
@@ -54,14 +56,22 @@ def simulate_energy_vs_interatomic_distance():
     energies_rigorous = []
     energies_2n1p_gs = []
     energies_2n1p_cisd = []
-    params = {"molecule": "H4", "n_qubits": 8, "verbose": 0, "shots": 1e10, "n_lev": 20, "subspace": "2n1p", "spin_supspace": "up"}
+    params = {
+        "molecule": "H4",
+        "n_qubits": 8,
+        "verbose": 0,
+        "shots": 1e10,
+        "n_lev": 20,
+        "subspace": "2n1p",
+        "spin_supspace": "up",
+    }
     for length in tqdm(np.arange(0.5, 4.5, 0.1)):
         ham = _get_h4_hamiltonian(length)
         h4 = MoleculeInfo(params, ham)
         subspace_expansion = SubspaceExpansion(params, h4)
         energy_2n1p_gs = subspace_expansion.solve_qde_classically(h4, h4.state_gs)[1]
         energy_2n1p_cisd = subspace_expansion.solve_qde_classically(h4, h4.state_cisd)[1]
-        
+
         energies_rigorous.append(h4.energy_excited)
         energies_2n1p_gs.append(energy_2n1p_gs)
         energies_2n1p_cisd.append(energy_2n1p_cisd)
@@ -76,19 +86,19 @@ def _estimate_qse_matrix_elements_noise_simulator(beta_eff, params):
                 if coef == 0:
                     continue
                 if term not in pauli_exp_dict:
-                    pauli_exp_dict[term] = state.conj()@pauli_mat_dict[term]@state
+                    pauli_exp_dict[term] = state.conj() @ pauli_mat_dict[term] @ state
                 n_shot = get_n_shots_per_pauli(term, beta_eff, shots_total)
                 if n_shot == 0:
                     continue
-                shot_noise = np.random.normal() * coef * np.sqrt(abs(1-pauli_exp_dict[term]**2)/n_shot)
-                result_mat[i, j] += coef*pauli_exp_dict[term] + shot_noise
+                shot_noise = np.random.normal() * coef * np.sqrt(abs(1 - pauli_exp_dict[term] ** 2) / n_shot)
+                result_mat[i, j] += coef * pauli_exp_dict[term] + shot_noise
         else:
             result_mat[i, j] = result_mat[j, i]
         return
 
     def get_n_shots_per_pauli(term, beta, shots_total):
         rate = np.prod([beta[i, {"X": 0, "Y": 1, "Z": 2}[label]] for i, label in term])
-        return int(shots_total*rate)
+        return int(shots_total * rate)
 
     h_ij = params["h_ij"]
     s_ij = params["s_ij"]
@@ -96,8 +106,8 @@ def _estimate_qse_matrix_elements_noise_simulator(beta_eff, params):
     state = params["molecule"].state_gs
     shots_total = params["subspace_expansion"].params["shots"]
     qse_dimension = max([i for i, _ in h_ij.keys()]) + 1
-    h_eff = np.zeros([qse_dimension]*2, dtype=complex)
-    s_mtrc = np.zeros([qse_dimension]*2, dtype=complex)
+    h_eff = np.zeros([qse_dimension] * 2, dtype=complex)
+    s_mtrc = np.zeros([qse_dimension] * 2, dtype=complex)
 
     pauli_exp_dict = {}
     for i, j in h_ij.keys():
@@ -121,18 +131,12 @@ def _iterative_run_lbcs(params):
     }
 
     # get initial beta_eff
-    h_d_jw, _ = subspace_expansion._get_h_s_d(
-        subspace_expansion.alpha_cisd, hamiltonian
-    )
-    beta_eff = local_dists_optimal(
-        h_d_jw, n_qubit, "diagonal", "lagrange"
-        ).real
- 
+    h_d_jw, _ = subspace_expansion._get_h_s_d(subspace_expansion.alpha_cisd, hamiltonian)
+    beta_eff = local_dists_optimal(h_d_jw, n_qubit, "diagonal", "lagrange").real
+
     for j in range(params["n_iteration"]):
         # update matrix element of general eigenvalue problem
-        h_eff, s_mtrc = _estimate_qse_matrix_elements_noise_simulator(
-            beta_eff, params
-        )
+        h_eff, s_mtrc = _estimate_qse_matrix_elements_noise_simulator(beta_eff, params)
         dict_iter_lbcs["results_mat"].append({"h_eff": h_eff, "s_mtrc": s_mtrc})
 
         # update alpha
@@ -141,7 +145,7 @@ def _iterative_run_lbcs(params):
                 h_eff,
                 s_mtrc,
                 params["molecule"].energy_excited,
-                threshold=1/np.sqrt(subspace_expansion.params["shots"]),
+                threshold=1 / np.sqrt(subspace_expansion.params["shots"]),
                 return_vec=True,
             )
         else:
@@ -149,7 +153,7 @@ def _iterative_run_lbcs(params):
                 h_eff,
                 s_mtrc,
                 n_lev=subspace_expansion.params["n_lev"],
-                threshold=1/np.sqrt(subspace_expansion.params["shots"]),
+                threshold=1 / np.sqrt(subspace_expansion.params["shots"]),
                 return_vec=True,
             )
         dict_iter_lbcs["energy_excited"].append(energy_excited)
@@ -157,10 +161,8 @@ def _iterative_run_lbcs(params):
         if params["verbose"] >= 1:
             print(f"RUN[{params['seed']}-{j}]", "E excited (QSE) ", energy_excited)
 
-        # update operator of H_d, S_d 
-        h_d_jw_iter, s_d_jw_iter = subspace_expansion._get_h_s_d(
-            alpha, params["molecule"].hamiltonian
-        )
+        # update operator of H_d, S_d
+        h_d_jw_iter, s_d_jw_iter = subspace_expansion._get_h_s_d(alpha, params["molecule"].hamiltonian)
         dict_iter_lbcs["ops"].append({"H_d_jw": h_d_jw_iter, "S_d_jw": s_d_jw_iter})
 
         # update beta_eff
@@ -184,7 +186,15 @@ def _get_pauli_mat_dict(file_name, n_qubits, h_ij, load=True):
 
 
 def simulate_qse_convergence():
-    params_qse = {"molecule": "H4", "n_qubits": 8, "verbose": 0, "shots": 1e8, "n_lev": 20, "subspace": "2n1p", "spin_supspace": "up"}
+    params_qse = {
+        "molecule": "H4",
+        "n_qubits": 8,
+        "verbose": 0,
+        "shots": 1e8,
+        "n_lev": 20,
+        "subspace": "2n1p",
+        "spin_supspace": "up",
+    }
     ham = _get_h4_hamiltonian(length=2.0)
     h4 = MoleculeInfo(params_qse, ham)
     subspace_expansion = SubspaceExpansion(params_qse, h4)
@@ -194,14 +204,18 @@ def simulate_qse_convergence():
         "molecule": h4,
         "h_ij": h_ij,
         "s_ij": s_ij,
-        "pauli_mat_dict": _get_pauli_mat_dict("H4_8_length_2.0_pauli_mat_dict.pkl", params_qse["n_qubits"], h_ij, load=True),
+        "pauli_mat_dict": _get_pauli_mat_dict(
+            "H4_8_length_2.0_pauli_mat_dict.pkl", params_qse["n_qubits"], h_ij, load=True
+        ),
         "n_iteration": 10,
         "verbose": 1,
         "cpu_assigned": 10,
     }
     params_iteration_list = [{"seed": i, **params_iteration} for i in range(params_iteration["n_iteration"])]
     pool = Pool(processes=params_iteration["cpu_assigned"])
-    iterative_run_results = [result_dict for result_dict in pool.imap_unordered(_iterative_run_lbcs, params_iteration_list)]
+    iterative_run_results = [
+        result_dict for result_dict in pool.imap_unordered(_iterative_run_lbcs, params_iteration_list)
+    ]
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S.%f")
 

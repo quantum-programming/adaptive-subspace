@@ -9,6 +9,7 @@ from scipy.optimize.optimize import OptimizeResult
 
 from utils import pad_op
 
+
 class OverlappedGrouping(object):
     def __init__(self, op_hamiltonian: QubitOperator, T: int):
         """Initialize overlapped grouping class
@@ -88,9 +89,7 @@ class OverlappedGrouping(object):
             pr_arr = meas_and_p[-1, :]
 
             [new_len, new_pr] = self._cut_more_set(pr_arr)
-            if self._variance(new_pr, observ, meas_arr) < self._variance(
-                pr_arr, observ, meas_arr
-            ):
+            if self._variance(new_pr, observ, meas_arr) < self._variance(pr_arr, observ, meas_arr):
                 pr_arr = new_pr
                 len_ = new_len
                 meas_arr = meas_arr[:, :len_]
@@ -193,7 +192,7 @@ class OverlappedGrouping(object):
         for j in range(m):  # observ[j]
             temp = 0
             for k in range(len_pr):  # meas[k]
-                if self._if_commute(observ[j, 1: Nq + 1], meas[:, k]):
+                if self._if_commute(observ[j, 1 : Nq + 1], meas[:, k]):
                     temp = temp + pr[k]
             if temp != 0:
                 var = var + observ[j, 0] ** 2 / temp
@@ -218,9 +217,7 @@ class OverlappedGrouping(object):
                 break
         return res
 
-    def _opt_diag_var(
-        self, pr: np.ndarray, iter_num: int, observ: np.ndarray, meas: np.ndarray
-    ) -> OptimizeResult:
+    def _opt_diag_var(self, pr: np.ndarray, iter_num: int, observ: np.ndarray, meas: np.ndarray) -> OptimizeResult:
         """optimize probability distribution that minimize variance
 
         Args:
@@ -284,9 +281,7 @@ class OverlappedGrouping(object):
         for terms_and_coef in meas_and_p.T:
             terms = terms_and_coef[:-1]
             coef = terms_and_coef[-1]
-            pauli_str = " ".join(
-                [f"{pauli_dict[op]}{i}" for i, op in enumerate(terms) if op != 0]
-            )
+            pauli_str = " ".join([f"{pauli_dict[op]}{i}" for i, op in enumerate(terms) if op != 0])
             ham += coef * QubitOperator(pauli_str)
 
         return ham

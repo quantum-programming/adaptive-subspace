@@ -8,18 +8,14 @@ from openfermion.linalg import get_ground_state, get_sparse_operator
 
 
 class MoleculeInfo(object):
-    def __init__(
-      self,
-      params: Dict,
-      hamiltonian=None
-    ):
+    def __init__(self, params: Dict, hamiltonian=None):
         self.hamiltonian = hamiltonian if hamiltonian else self._load_hamiltonian(params)
         self.n_qubit = count_qubits(self.hamiltonian)
         self.sparse_hamiltonian = get_sparse_operator(self.hamiltonian)
         self.energy_gs, self.state_gs = get_ground_state(self.sparse_hamiltonian)
         self.hf_state_label = f"{np.argmax(abs(self.state_gs)):0{self.n_qubit}b}"
         self.state_cisd = self._prepare_cisd(self.sparse_hamiltonian, self.hf_state_label, params["verbose"])
-        self.vec_args = self._particle_number_sector_spin(N_tot=self.n_qubit, M=self.hf_state_label.count("1")-1)
+        self.vec_args = self._particle_number_sector_spin(N_tot=self.n_qubit, M=self.hf_state_label.count("1") - 1)
         self.ham_proj = self._get_partial_matrix(self.sparse_hamiltonian, self.vec_args)
         self.energy_excited = get_ground_state(self.ham_proj)[0]
 
@@ -75,4 +71,3 @@ class MoleculeInfo(object):
 
     def _get_partial_matrix(self, mat, args):
         return mat[:, args][args, :]
- 

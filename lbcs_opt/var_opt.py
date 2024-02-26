@@ -1,17 +1,4 @@
-# optimisation problem for finding beta distributions
-# two algorithms exist:
-# - diagonal (only keep diagonal terms in cost function. Problem is convex)
-# - mixed (all influential pairs, not convex, requires HF string)
-
-# this file: the objective functions
-
-
-# Diagonal objective function
-
-
 def calculate_product_term_diagonal(Q, β):
-    # \prod_{i\in\supp(\Qarrow)} \beta_{i,Q_i}^{-1}
-    # assert len(Q) == len(β.keys())
     pauli_to_index = {'X': 0, 'Y': 1, 'Z': 2}
     prod = 1.0
     for i in range(len(Q)):
@@ -32,9 +19,6 @@ def objective_diagonal(dic_tf, β):
     for Q, alphaQ in dic_tf.items():
         tally += alphaQ**2 * calculate_product_term_diagonal(Q, β)
     return tally
-
-
-# Mixed objective functions
 
 
 def is_influential_pauli_single_qubit(q, r):
@@ -68,9 +52,6 @@ def build_influential_pairs(dic_tf, n):
 
 
 def calculate_product_term_mixed(Q, R, bitstring_HF, β):
-    # assume Q,R are already admissable!
-    # assume β, m are of correct structure!
-    # \prod_{i | Q_i=R_i\neq I} \beta_{i,Q_i}^{-1} \prod_{i | Q_i\neq R_i} m_i
     pauli_to_index = {'X': 0, 'Y': 1, 'Z': 2}
     prod = 1.0
     for i in range(len(Q)):
@@ -78,10 +59,6 @@ def calculate_product_term_mixed(Q, R, bitstring_HF, β):
             qubit = (len(Q)-1)-i  # qiskit ordering
             index = pauli_to_index[Q[i]]
             b = β[qubit][index]
-            # if b == 0.0:
-            # this cannot be allowed, as convergence in expectation won't work
-            #    return float('inf')
-            # else:
             prod *= b**(-1)
         if Q[i] != R[i]:
             # then Q[i], R[i] are of the form I,Z or Z,I

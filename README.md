@@ -1,95 +1,98 @@
 # Adaptive measurement strategy for subspace methods
 
-## OGM
+## Single Iteration of quantum subspace expansion with measurement strategy
 ```python
-# prepare openfermion operator
-from openfermion.hamiltonians import jellium_model
-from openfermion.utils import fourier_transform, Grid
-from openfermion.transforms import jordan_wigner
+params_fixed = {
+    "n_trial": 10,
+    "n_lev": "auto",
+    "subspace": "1n",
+    "spin_supspace": "up",
+    "cpu_assigned": 10,
+    "verbose": 0,
+    "load": True,
+    "write_result_matrix": True,
+    "OGM_param_T": 1000,
+}
 
-grid = Grid(dimensions=1, length=3, scale=1.0)
-momentum_hamiltonian = jellium_model(grid, spinless=True)
-momentum_qubit_operator = jordan_wigner(momentum_hamiltonian)
-position_hamiltonian = fourier_transform(momentum_hamiltonian, grid, spinless=True)
-position_qubit_operator = jordan_wigner(position_hamiltonian)
-position_qubit_operator
+method = "LBCS" # select from  ["CS", "qubit_wise_commuting","LBCS", "DCS", "OGM", "naive_LBCS"]
+molecule_label, n_qubit = ("H2", 8) # select from  [("H2", 4), ("H2", 8), ("LiH", 10)]
+shots = 1000
+param_key = (molecule_label, n_qubit, shots, method)
+print("\n", param_key)
+params = {
+    "molecule": molecule_label,
+    "n_qubits": n_qubit,
+    "shots": shots,
+    "method": method,
+    "suffix": timestamp(),
+    **params_fixed,
+}
+
+molecule = MoleculeInfo(params)
+subspace_expansion = SubspaceExpansion(params, molecule)
+err, std = subspace_expansion.execute_statistics(molecule)
+print({"err": err, "std": std})
 ```
 
->>19.500476387540857 [] +
--6.42058132430101 [Z0] +
--3.289868133696451 [Y0 Y1] +
--3.289868133696451 [X0 X1] +
--3.2898681336964564 [Y0 Z1 Y2] +
--3.2898681336964564 [X0 Z1 X2] +
--6.4205813243010095 [Z1] +
--3.289868133696451 [Y1 Y2] +
--3.289868133696451 [X1 X2] +
--6.42058132430101 [Z2] +
--0.07957747154594766 [Z0 Z1] +
--0.07957747154594767 [Z0 Z2] +
--0.07957747154594766 [Z1 Z2]
+> ('H2', 8, 1000, 'LBCS')  
+> {'err': 0.1108, 'std': 0.1377}
 
 
+## Adaptive quantum subspace expansion with measurement strategy
 ```python
-# obtain efficient measurement set and its probability distribution according to overlapped grouping
-from OverlappedGrouping.overlapped_grouping import OverlappedGrouping
-overlappedGrouping(position_qubit_operator,T=100).get_meas_and_p()
-
+energy_excited_exact, energy_excited_cisd, energies_excited = h4_experiment.simulate_qse_convergence()
 ```
 
-## Classical Shadow with LBCS and OGM
+> RUN[0-0] E excited (QSE)  -1.5081996714867638  
+> :  
+> RUN[9-0] E excited (QSE)  -1.5076201649425292  
+> RUN[0-1] E excited (QSE)  -1.5102217623932128  
+> :  
+> RUN[9-1] E excited (QSE)  -1.5090517618851846  
+> :  
+> RUN[0-9] E excited (QSE)  -1.510351863966394  
+> :  
+> RUN[9-9] E excited (QSE)  -1.5098123491611533
+
 ```python
-from openfermion.linalg import get_ground_state, get_sparse_operator
-from openfermion import linalg, QubitOperator
+n_iter = 10
 
-ham_h2_jw = QubitOperator()
-ham_h2_jw.terms = {(): -0.8105479805373261,
- ((0, 'X'), (1, 'X'), (2, 'X'), (3, 'X')): 0.04523279994605781,
- ((0, 'X'), (1, 'X'), (2, 'Y'), (3, 'Y')): 0.04523279994605781,
- ((0, 'Y'), (1, 'Y'), (2, 'X'), (3, 'X')): 0.04523279994605781,
- ((0, 'Y'), (1, 'Y'), (2, 'Y'), (3, 'Y')): 0.04523279994605781,
- ((0, 'Z'),): 0.17218393261915566,
- ((0, 'Z'), (1, 'Z')): 0.1209126326177663,
- ((0, 'Z'), (2, 'Z')): 0.16892753870087912,
- ((0, 'Z'), (3, 'Z')): 0.16614543256382408,
- ((1, 'Z'),): -0.2257534922240248,
- ((1, 'Z'), (2, 'Z')): 0.16614543256382408,
- ((1, 'Z'), (3, 'Z')): 0.17464343068300447,
- ((2, 'Z'),): 0.1721839326191557,
- ((2, 'Z'), (3, 'Z')): 0.1209126326177663,
- ((3, 'Z'),): -0.2257534922240248}
+plt.rcParams["font.size"] = 15
+plt.rcParams["xtick.direction"] = "out"
+plt.rcParams["ytick.direction"] = "out"
+plt.rcParams["xtick.top"] = False
+plt.rcParams["ytick.right"] = False
 
-
-num_qubits = 4
-beta_eff = local_dists_optimal(ham_h2_jw, num_qubits, "diagonal", "lagrange")
-# beta_eff = np.array([[0.31122347, 0.31122347, 0.37755306],
-#        [0.30214128, 0.30214128, 0.39571744],
-#        [0.31122347, 0.31122347, 0.37755306],
-#        [0.30214128, 0.30214128, 0.39571744]])
-
-meas_dist = QubitOperator()
-meas_dist.terms = {((0, 'X'), (1, 'X'), (2, 'X'), (3, 'X')): 0.06107293172976727,
- ((0, 'X'), (1, 'X'), (2, 'Y'), (3, 'Y')): 0.06105199949206699,
- ((0, 'Y'), (1, 'Y'), (2, 'X'), (3, 'X')): 0.06105199949206626,
- ((0, 'Y'), (1, 'Y'), (2, 'Y'), (3, 'Y')): 0.061052009368477114,
- ((0, 'Z'), (1, 'Z'), (2, 'Z'), (3, 'Z')): 0.7557710599176223}
-
-
-Nshadow_tot = 1000 # 合計のランダム測定回数
-nshot_per_axis = 1
-num_qubit = 4
-
-energy, psi = get_ground_state(get_sparse_operator(ham_h2_jw))
-    
-Sampler = LocalPauliShadowSampler_core(num_qubit, psi, Nshadow_tot, nshot_per_axis)
-print(estimate_exp(ham_h2_jw, Sampler))
-print(estimate_exp_lbcs(ham_h2_jw, Sampler,beta = beta_eff))
-print(estimate_exp_ogm(ham_h2_jw, Sampler,meas_dist = meas_dist))
+plt.errorbar(
+    range(0, n_iter + 1),
+    np.hstack([[energy_excited_cisd], np.mean(energies_excited, axis=0)]),
+    yerr=np.hstack([[0], np.std(energies_excited, ddof=1, axis=0)]),
+    fmt="-o",
+    color="green",
+    label="QC QSE (w/ shotnoise)",
+)
+plt.hlines(
+    y=energy_excited_cisd,
+    xmin=0,
+    xmax=10,
+    color="Orange",
+    label="CISD QSE",
+    linestyles="-.",
+)
+plt.hlines(
+    y=energy_excited_exact, xmin=0, xmax=10, color="red", label="Exact", zorder=0
+)
+plt.legend(loc=(0.45, 0.63), fontsize=12, edgecolor="black")
+plt.ylabel("E (1st)", fontsize=18)
+plt.xlabel("Number of Iterations", fontsize=18)
+plt.minorticks_off()
+plt.text(-3.3, -1.4856, "", fontsize=15, weight="bold")
+plt.show()
 ```
-> -1.8776611085760964   
--1.8798839567797456  
- -1.8496958629294746
+![image](https://github.com/YumaNK/adaptive-subspace/assets/19603134/c12000f6-df76-4ead-8c02-1d480717710b)
 
+
+For more detail, refer [reproduce_experiment.ipynb](https://github.com/quantum-programming/adaptive-subspace/blob/main/reproduce_experiment.ipynb).
 
 ## How to cite
 If you use this code, please cite "Adaptive measurement strategy for quantum subspace methods" as follows: 

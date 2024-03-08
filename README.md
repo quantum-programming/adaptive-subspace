@@ -37,6 +37,15 @@ print({"err": err, "std": std})
 > ('H2', 8, 1000, 'LBCS')  
 > {'err': 0.1108, 'std': 0.1377}
 
+### Description of Parameters:
+ * n_trial [int]:  Number of trials to gather statistics for mean absolute error and standard deviation.
+ * n_lev["auto" or int]: Regularization parameter for the general eigenvalue problem. The maximum value is the dimension of the subspace. If "auto" is selected, n_lev is chosen to minimize the absolute error of estimation.
+ * subspace ["1n" or "2n1p"]: Choosing "1n" yields a subspace $S = Span \\{ a_i \ket{\psi} \\}$, while "2n1p" yields a subspace $S = Span\\{a_i a_j^\dagger a_k \ket{\psi} \\}$.
+ * spin_supspace ["up", "down", or "all"]: Selecting "up(down)" yields a supspace $S = Span\\{O_{i,\sigma=\uparrow(\downarrow) } \ket{\psi} \\} $, while "all" yields a subspace $S = Span\\{O_{i,\sigma\in \\{\uparrow, \downarrow \\}} \ket{\psi} \\} $.
+ * cpu_assigned [int]: Number of CPUs assigned for the calculation.
+ * verbose [0, 1, 2]: Verbosity level for the calculation progress. To minimize output, set it to 0.
+ * load [bool]: If True, precomputed values are utilized for some calculations.
+ * write_result_matrix [bool]: If True, $H_{ij}$ and $S_{ij}$ are saved after the calculation."
 
 ## Adaptive quantum subspace expansion with measurement strategy
 ```python

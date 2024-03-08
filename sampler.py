@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -35,19 +35,22 @@ class LocalPauliShadowSampler_core(object):
         self,
         lbcs_beta: Optional[Iterable[Iterable]] = None,
         ogm_meas_set: Optional[Iterable[Iterable]] = None,
-    ):
-        """
-        Creates a list of random measurement axis.
+    ) -> np.ndarray:
+        """   Creates a list of random measurement axis.
         For 3-qubit system, this looks like, e.g.,
         [1, 3, 2],
         which tells you to measure in
         [X, Z, Y]
         basis.
 
-        return:
-            List[n_qubit]
+        Args:
+            lbcs_beta (Optional[Iterable[Iterable]], optional): Weighted bias of measurement bases for LBCS. Defaults to None.
+            ogm_meas_set (Optional[Iterable[Iterable]], optional): Probability distribution of basis for OGM. Defaults to None.
+
+        Returns:
+            np.ndarray: Optimized measurement bases.
         """
-        assert not ((lbcs_beta is not None) and (ogm_meas_set is not None)), "you must choose either of lbcs or ogm"
+        assert not ((lbcs_beta is not None) and (ogm_meas_set is not None)), "you must choose either of LBCS or OGM"
         if lbcs_beta is not None:
             meas_axes = np.vstack(
                 [np.random.multinomial(1, beta_i, size=self.Ntot).argmax(axis=1) + 1 for beta_i in lbcs_beta]
@@ -60,12 +63,15 @@ class LocalPauliShadowSampler_core(object):
             meas_axes = np.random.randint(1, 4, size=(self.Ntot, self.n_qubit))
         return meas_axes
 
-    def _sample_digits(self, meas_axis, nshot_per_axis=1):
-        """
-        returns the measurement result at meas_axis.
-        attributes:
-            meas_axis: List of axes
-            nshot_per_axis: number of measurement per axis
+    def _sample_digits(self, meas_axis: np.ndarray, nshot_per_axis=1) -> List[List[int]]:
+        """ Returns the measurement result at meas_axis.
+
+        Args:
+            meas_axis (np.ndarray): Optimized measurement basis axis.
+            nshot_per_axis (int, optional): number of measurement per axis. Defaults to 1.
+
+        Returns:
+            List[List[int]]: List of measurement result in same format of meas_axis.
         """
         meas_state = QuantumState(self.n_qubit)
         meas_state.load(self.state)
@@ -89,9 +95,26 @@ class LocalPauliShadowSampler_core(object):
         return digits
 
 
-def local_dists_optimal(ham, num_qubits, objective, method, β_initial=None, bitstring_HF=None):
+def local_dists_optimal(
+    ham: QubitOperator,
+    num_qubits: int,
+    objective: str,
+    method: str,
+    β_initial: Dict = None,
+    bitstring_HF: str = None,
+) -> np.ndarray:    
     """Find optimal probabilities beta_{i,P} and return as dictionary
-    attn: qiskit ordering"""
+
+    Args:
+        ham (QubitOperator): Target Hamiltonian
+        num_qubits (int): Number of qubits
+        objective (str): Objective fuction
+        method (str): Optimization method
+        bitstring_HF (str, optional): HF representation. Defaults to None.
+
+    Returns:
+        np.ndarray: _description_
+    """
     assert objective in ["diagonal", "mixed"]
     assert method in ["scipy", "lagrange"]
 
@@ -138,12 +161,13 @@ def estimate_exp(
     meas_axes: Iterable[Iterable] = None,
     samples: np.ndarray = None,
 ) -> float:
-    """
-    Estimate expectation value of Observable for Basic Classical Shadow
+    """Estimate expectation value of Observable for Basic Classical Shadow
 
     Args:
         operator (QubitOperator): Observable such as Hamiltonian
         sampler (LocalPauliShadowSampler_core): Sampler Class
+        meas_axes (Iterable[Iterable], optional): Precomputed measurement axes. Defaults to None.
+        samples (np.ndarray, optional): Precomputed sampling results for given measurement axes. Defaults to None.
 
     Returns:
         float: Expectation value
@@ -179,13 +203,15 @@ def estimate_exp_lbcs(
     meas_axes: Iterable[Iterable] = None,
     samples: np.ndarray = None,
 ) -> float:
-    """
-    Estimate expectation value of Observable for Locally Biased Classical Shadow
+    """Estimate expectation value of Observable for Locally Biased Classical Shadow
 
     Args:
         operator (QubitOperator): Observable such as Hamiltonian
         sampler (LocalPauliShadowSampler_core): Sampler Class
         beta (Iterable[Iterable]): weighted bias
+        meas_axes (Iterable[Iterable], optional): Precomputed measurement axes. Defaults to None.
+        samples (np.ndarray, optional): Precomputed sampling results for given measurement axes. Defaults to None.
+
 
     Returns:
         float: Expectation value
@@ -231,6 +257,9 @@ def estimate_exp_ogm(
         sampler (LocalPauliShadowSampler_core): Sampler Class
         meas_dist (Iterable[Iterable]): measurement set and its distribution
                                         input is format of QubitOperator.terms
+        meas_axes (Iterable[Iterable], optional): Precomputed measurement axes. Defaults to None.
+        samples (np.ndarray, optional): Precomputed sampling results for given measurement axes. Defaults to None.
+
 
     Returns:
         float: Expectation value
@@ -287,6 +316,8 @@ def estimate_exp_derand(
     Args:
         operator (QubitOperator): Observable such as Hamiltonian
         sampler (LocalPauliShadowSampler_core): Sampler Class
+        meas_axes (Iterable[Iterable], optional): Precomputed measurement axes. Defaults to None.
+        samples (np.ndarray, optional): Precomputed sampling results for given measurement axes. Defaults to None.
 
     Returns:
         float: Expectation value

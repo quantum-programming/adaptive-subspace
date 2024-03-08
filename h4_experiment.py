@@ -1,7 +1,9 @@
+from typing import Dict, List, Tuple
 import os
 import pickle
 from tqdm import tqdm
 import numpy as np
+import scipy
 from multiprocessing import Pool
 import datetime
 
@@ -17,8 +19,15 @@ from general_active_space import get_molecular_hamiltonian_generalAS
 from sampler import local_dists_optimal
 
 
-def _convert_spin_sector(ham_f):
-    "convert |↑↓↑↓...> representation to |↑↑...↓↓...> representation"
+def _convert_spin_sector(ham_f: FermionOperator) -> FermionOperator:
+    """convert |↑↓↑↓...> representation to |↑↑...↓↓...> representation.
+
+    Args:
+        ham_f (FermionOperator): Second-quantized molecular Hamiltonian in |↑↓↑↓...> representation.
+
+    Returns:
+        FermionOperator: Second-quantized molecular Hamiltonian in |↑↑...↓↓...> representation.
+    """
     n = count_qubits(ham_f)
     n_half = int(n / 2)
     index_map = {i: int(i / 2) if i % 2 == 0 else n_half + int((i - 1) / 2) for i in range(n)}
@@ -27,7 +36,15 @@ def _convert_spin_sector(ham_f):
     return ham_convert
 
 
-def _get_h4_hamiltonian(length):
+def _get_h4_hamiltonian(length: float) -> QubitOperator:
+    """Generate H4 Hamiltonian from given interatomic distance.
+
+    Args:
+        length (float): Interatomic distance (Å).
+
+    Returns:
+        QubitOperator: H4 Hamiltonian.
+    """
     geom = [
         ("H", (-length / 2 * 3, 0, 0)),
         ("H", (-length / 2, 0, 0)),
@@ -52,7 +69,13 @@ def _get_h4_hamiltonian(length):
     return ham
 
 
-def simulate_energy_vs_interatomic_distance():
+def simulate_energy_vs_interatomic_distance() -> Tuple[float, float, float]:
+    """Calculate energies with various interatomic distances.
+
+    Returns:
+        Tuple[float, float, float]: Rigorous energies, and energies estimated through the ground state and CISD state.
+    """
+
     energies_rigorous = []
     energies_2n1p_gs = []
     energies_2n1p_cisd = []
@@ -79,7 +102,17 @@ def simulate_energy_vs_interatomic_distance():
     return energies_rigorous, energies_2n1p_gs, energies_2n1p_cisd
 
 
-def _estimate_qse_matrix_elements_noise_simulator(beta_eff, params):
+def _estimate_qse_matrix_elements_noise_simulator(beta_eff: np.ndarray, params: Dict) -> Tuple[np.ndarray, np.ndarray]:
+    """Estimate operator matrices of QSE through LBCS using noise simulator.
+
+    Args:
+        beta_eff (np.ndarray): Weighted bias of measurement bases within LBCS.
+        params (Dict): Parameters for execution.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Estimated matrix elements  \tilde{H}_ij = <\psi| O_i^\dag H O_j |\psi> and \tilde{S}_ij = <\psi| O_i^\dag O_j |\psi>
+    """
+
     def estimate_qse_matrix_element_noise_simulator(i, j, op_mat, result_mat):
         if j >= i:
             for term, coef in op_mat[i, j].terms.items():
@@ -116,7 +149,15 @@ def _estimate_qse_matrix_elements_noise_simulator(beta_eff, params):
     return h_eff, s_mtrc
 
 
-def _iterative_run_lbcs(params):
+def _iterative_run_lbcs(params: Dict) -> Dict:
+    """Apply adaptive measurement optimization (LBCS)
+
+    Args:
+        params (Dict): Parameters for execution.
+
+    Returns:
+        Dict: QSE results in each iteration
+    """
     subspace_expansion = params["subspace_expansion"]
     hamiltonian = params["molecule"].hamiltonian
     n_qubit = subspace_expansion.n_qubit
@@ -171,7 +212,20 @@ def _iterative_run_lbcs(params):
     return dict_iter_lbcs
 
 
-def _get_pauli_mat_dict(file_name, n_qubits, h_ij, load=True):
+def _get_pauli_mat_dict(
+    file_name: str, n_qubits: int, h_ij: Dict[Tuple, QubitOperator], load=True
+) -> Dict[Tuple, scipy.sparse.csc.csc_matrix]:
+    """Generate dictionary of sparse matrix.
+
+    Args:
+        file_name (str): Filename of sparse matrix dictionary to loda/save.
+        n_qubits (int): Number of qubits.
+        h_ij (Dict[Tuple, QubitOperator]): Operator matrix
+        load (bool, optional): If True, precomputed sparse matrix dictionary is used. Defaults to True.
+
+    Returns:
+        Dict[Tuple, scipy.sparse]: _description_
+    """
     if load and file_name in os.listdir("h4_experiment_results"):
         with open(f"h4_experiment_results/{file_name}", "rb") as f:
             pauli_mat_dict = pickle.load(f)
@@ -185,7 +239,12 @@ def _get_pauli_mat_dict(file_name, n_qubits, h_ij, load=True):
     return pauli_mat_dict
 
 
-def simulate_qse_convergence():
+def simulate_qse_convergence() -> Tuple[float, float, List[float]]:
+    """Benchmark convergence of adaptive update of measurement strategy
+
+    Returns:
+        Tuple[float, float, List[float]]: rigorous and CISD energies, and energies for iterations.
+    """
     params_qse = {
         "molecule": "H4",
         "n_qubits": 8,

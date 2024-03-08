@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Tuple, Union
 from multiprocessing import Pool
 import os
 import pickle
@@ -55,8 +55,20 @@ class SubspaceExpansion(object):
             terms = [FermionOperator(f"{i} {j}^ {k}") for i, j, k in itertools.product(iterator, repeat=3)]
         return [jordan_wigner(op) for op in terms]
 
-    def solve_qde_classically(self, molecule, state):
-        # preprocess (classical) subspace-expansion
+    def solve_qde_classically(self, molecule: MoleculeInfo, state: np.ndarray) -> Tuple[np.ndarray, float]:
+        """
+        Performing classical preprocessing to approximate the coefficients of variational parameters.
+
+        Args:
+            molecule (MoleculeInfo): Target molecule information.
+            state (np.ndarray): Classically simulatable state.
+
+        Raises:
+            ValueError: Raised when the number of shots is too low and n_lev is too large.
+
+        Returns:
+            Tuple[np.ndarray, float]: Variational coefficients and estimated energy in the classical regime.
+        """
         terms_eff_dict = {}
         for i, term in enumerate(self.qse_ops):
             terms_eff_dict[str(term)] = get_sparse_operator(term, n_qubits=self.n_qubit) @ state
@@ -97,7 +109,17 @@ class SubspaceExpansion(object):
 
         return alpha, energy_excited
 
-    def _get_h_s_d(self, alpha_se, ham):
+    def _get_h_s_d(self, alpha_se: np.ndarray, ham: QubitOperator) -> Tuple[QubitOperator, QubitOperator]:
+        """
+        Calculate dressed operators from the Hamiltonian and variational coefficients.
+
+        Args:
+            alpha_se (np.ndarray): Variational coefficients for subspace expansion.
+            ham (QubitOperator): Molecular Hamiltonian.
+
+        Returns:
+            Tuple[QubitOperator, QubitOperator]: Dressed operators H_d and S_d in Jordan-Wigner representation.
+        """
         def qubit_op_from_term(terms):
             op = QubitOperator()
             op.terms = terms
@@ -111,7 +133,17 @@ class SubspaceExpansion(object):
 
         return H_d_jw, S_d_jw
 
-    def _get_h_s_ij(self, ham):
+    def _get_h_s_ij(
+        self, ham: QubitOperator
+    ) -> Tuple[Dict[Tuple[int, int], QubitOperator], Dict[Tuple[int, int], QubitOperator]]:
+        """Calculate operator matrices H_ij = O_i^\dag H O_j and S_ij = O_i^\dag O_j
+
+        Args:
+            ham (QubitOperator): Molecular Hamiltonian.
+
+        Returns:
+            Tuple[Dict[Tuple[int, int], QubitOperator], Dict[Tuple[int, int], QubitOperator]]: Operator matrices H_ij and S_ij
+        """
         h_ij = {}
         s_ij = {}
         for i, term_i in enumerate(self.qse_ops):
@@ -124,7 +156,15 @@ class SubspaceExpansion(object):
                     s_ij[i, j] = s_ij[j, i]
         return h_ij, s_ij
 
-    def estimate_qse_matrix_elements(self, meas_axes):
+    def estimate_qse_matrix_elements(self, meas_axes: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Estimate each element of operator matrices using measurement basis optimization subroutines
+
+        Args:
+            meas_axes (np.ndarray): Optimized measurement bases
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Estimated matrix elements  \tilde{H}_ij = <\psi| O_i^\dag H O_j |\psi> and \tilde{S}_ij = <\psi| O_i^\dag O_j |\psi>
+        """
         def estimate_qse_matrix_element(i, j, op_mat, result_mat):
             if j >= i:
                 if self.params["method"] == "naive_LBCS":
@@ -167,11 +207,28 @@ class SubspaceExpansion(object):
         return H_eff, S_mtrc
 
     def _solve_nlev_regularized_gen_eig(
-        self, h, s, n_lev=None, threshold=1e-15, vec_norm_thresh=np.infty, return_vec=False
-    ):
-        s_vals, s_vecs = scipy.linalg.eigh(
-            s,
-        )
+        self,
+        h: np.ndarray,
+        s: np.ndarray,
+        n_lev: int = None,
+        threshold=1e-15,
+        vec_norm_thresh=np.infty,
+        return_vec=False,
+    ) -> Union[float, Tuple[float, np.ndarray]]:
+        """Solve the general eigenvalue problem using regularization
+
+        Args:
+            h (np.ndarray): Estimated matrix elements \tilde{H}_ij
+            s (np.ndarray): Estimated matrix elements \tilde{S}_ij
+            n_lev (int, optional): Regularization parameter (truncation size). Defaults to None.
+            threshold (float, optional): Regularization parameter (truncation lower bound). Defaults to 1e-15.
+            vec_norm_thresh (float, optional): Regularization parameter (truncation upper bound).. Defaults to np.infty.
+            return_vec (bool, optional): If True, return value includes the corresponding eigenvector.  Defaults to False.
+
+        Returns:
+            Union[float, (Tuple[float, np.ndarray]]: The lowest eigenvalue (and its eigenvector if return_vec=True)
+        """
+        s_vals, s_vecs = scipy.linalg.eigh(s)
         s_vecs = s_vecs.T
         if n_lev is not None:
             good_vecs = np.array(
@@ -188,14 +245,34 @@ class SubspaceExpansion(object):
             return sol[0][lowest_stable_index], sol[1][:, lowest_stable_index] @ good_vecs
         return sol[0][lowest_stable_index]
 
-    def _solve_regularized_gen_eig_with_best_n_lev(self, h_eff, s_mtrc, true_energy_excited, threshold, return_vec):
+    def _solve_regularized_gen_eig_with_best_n_lev(
+        self,
+        h: np.ndarray,
+        s: np.ndarray,
+        true_energy_excited: float,
+        threshold: float,
+        return_vec: bool,
+    ) -> Union[float, Tuple[float, np.ndarray]]:
+        """Solve the general eigenvalue problem using regularization with choosing n_lev to minimize the absolute error given a rigorous solution. 
+        Note that this method is for benchmarking purposes and is not available when the rigorous solution is unknown.
+
+        Args:
+            h (np.ndarray): Estimated matrix elements \tilde{H}_ij
+            s (np.ndarray): Estimated matrix elements \tilde{S}_ij
+            true_energy_excited (float): Rigorous solution of the excited-state energy.
+            threshold (float): Regularization parameter (truncation lower bound).
+            return_vec (bool): If True, return value includes the corresponding eigenvector.
+
+        Returns:
+            Union[float, Tuple[float, np.ndarray]]: The lowest eigenvalue (and its eigenvector if return_vec=True)
+        """
         energies_excited = []
         alpha_list = []
         for i in range(1, len(self.qse_ops)):
             try:
                 ret = self._solve_nlev_regularized_gen_eig(
-                    h_eff,
-                    s_mtrc,
+                    h,
+                    s,
                     n_lev=i,
                     threshold=threshold,
                     return_vec=return_vec,
@@ -217,7 +294,18 @@ class SubspaceExpansion(object):
         else:
             return energies_excited[best_idx]
 
-    def execute_statistics(self, molecule):
+    def execute_statistics(self, molecule: MoleculeInfo) -> Tuple[float, float]:
+        """Evaluate mean absolute error and standard deviation of QSE calculation.
+
+        Args:
+            molecule (MoleculeInfo): Target molecule
+
+        Raises:
+            ValueError: Raised when the number of shots is too low and n_lev is too large.
+
+        Returns:
+            Tuple[float, float]: Mean absolute error and standard deviation 
+        """
         self.h_ij, self.s_ij = self._get_h_s_ij(molecule.hamiltonian)
         h_eff_list = []
         s_mtrc_list = []
